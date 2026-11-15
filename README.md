@@ -3,9 +3,9 @@
 A Panel Regression Approach — Capstone 2 (MO-IT200D2, Section A4103, Group 1)
 Mapúa Malayan Digital College · BS Information Technology, Major in Data Analytics
 
-An annual dengue analytics and prioritization prototype for the 17 Metro Manila local government units (LGUs), built on 2021–2025 DOH dengue case records and PSA population data. A Python pipeline cleans and merges the data, computes incidence indicators, fits a Negative Binomial regression, and applies a predefined Priority / Watch / Stable rule. Results are exported as CSV files that feed an interactive Tableau dashboard.
+An annual dengue analytics and prioritization prototype for the 17 Metro Manila local government units (LGUs), built on 2021–2025 DOH dengue case records and PSA population data. A Python pipeline cleans and merges the data, computes incidence indicators, fits a Negative Binomial regression, and applies a predefined rule that gives each LGU an exploratory Priority / Watch / Stable classification. Results are exported as CSV files that feed an interactive Tableau dashboard.
 
-> **Scope.** This is a supplementary research prototype. It does not forecast cases, predict outbreaks, or establish causation, and it does not replace official DOH surveillance.
+> **Scope.** This is a supplementary research prototype. It does not forecast cases, predict outbreaks, or establish causation, and it does not replace official DOH surveillance. The Priority / Watch / Stable tiers are exploratory and are not validated intervention priorities.
 
 ## Authors
 
@@ -39,8 +39,8 @@ Raw source files are preserved unmodified. All cleaning is done programmatically
 - Reported cases rose from 10,493 (2021) to 43,753 (2022), fell in 2023, and reached 45,014 in 2025. 13 of 17 LGUs ended 2025 at or above their own five-year average.
 - Population density showed a small negative association with incidence (IRR 0.9935 per 1,000 persons/km²) that was **not statistically significant** with clustered standard errors (p = 0.1296). The finding is fragile: it becomes significant when 2025 is excluded (p = 0.034) or when Manila is omitted (p = 0.002). The density result should be treated as inconclusive.
 - Year effects are large and significant (2022 incidence is about 4.1 times the 2021 level).
-- The rule produced **4 Priority** LGUs (Muntinlupa, Parañaque, Makati, Pasig), **11 Watch**, and **2 Stable** (Malabon, Taguig).
-- Makati's tier is sensitive to the population denominators used. It moves from Priority to Watch under the boundary-adjusted scenario. The adjusted scenario is reported as a sensitivity check and does not replace the primary data.
+- The rule gave 4 Priority LGUs (Muntinlupa, Parañaque, Makati, Pasig), 11 Watch, and 2 Stable (Malabon, Taguig). These are exploratory classifications, not validated intervention priorities.
+- Makati's tier is sensitive to the population denominators used. It moves from Priority to Watch under the boundary-adjusted scenario. The adjusted scenario is reported as a sensitivity check and does not replace the primary data. Makati’s Priority tier is therefore marked provisional in the paper and on the dashboard.
 - Because density is the only LGU-level predictor, the structural ranking is almost the reverse of density order (Spearman −0.99). The observed-incidence condition is the more dependable half of the rule, so always read tiers alongside the values that produced them.
 - User acceptance testing (15 respondents): overall mean 4.20 / 5 (4.08 excluding two respondents who rated every item 5).
 
@@ -51,11 +51,17 @@ notebooks/   Jupyter notebooks, one per pipeline stage
              05_negative_binomial_regression.ipynb — NB model, diagnostics,
              sensitivity analyses, risk ranking, priority tiers, CSV export
 src/         Reusable functions (e.g. src/priority.py: assign_priority_tier)
-data/        Raw, cleaned, and validated data
+data/        Raw, official reference, processed, and validated data
+             02_official_reference/ — PSA 2020 and 2024 population anchors
              04_validated/lgu_year_panel.csv — the 85-row analysis panel
-outputs/     Dashboard-ready CSV exports (sole data source for Tableau)
-docs/        data_dictionary.md and supporting documentation
+outputs/     NB model CSVs (lgu_priority_flags.csv and others)
+             analytical/        Poisson baseline and overdispersion results
+             dashboard_exports/ CSVs for the descriptive dashboard panels
+             dashboard/         Tableau workbook (.twbx)
+             testing_evidence/  Figures and tables for Appendix H
+docs/        Data dictionary, calculation validation notes, overdispersion
 tests/       pytest suite
+tools/       check_rerun_outputs.py — clean-rerun comparison
 ```
 
 ## Outputs
@@ -70,15 +76,17 @@ tests/       pytest suite
 
 Every tier can be verified by hand from `lgu_priority_flags.csv` without refitting the model.
 
+The last cell of the same notebook also saves the testing evidence (full NB output, deviance residuals, Cook’s distance, and leave-one-LGU-out results) to `outputs/testing_evidence/`.
+
 ## Setup and reproduction
 
-Requires Python 3 with `pandas`, `numpy`, `statsmodels`, `scikit-learn`, and `pytest`.
+Requires Python 3. All dependencies are listed in requirements.txt.
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 # source .venv/bin/activate     # macOS / Linux
-pip install pandas numpy statsmodels scikit-learn pytest jupyter
+pip install -r requirements.txt
 ```
 
 Run the notebooks in order, using Restart Kernel and Run All, to regenerate the panel and the CSVs in `outputs/`. Run the tests with:
@@ -87,13 +95,19 @@ Run the notebooks in order, using Restart Kernel and Run All, to regenerate the 
 pytest
 ```
 
-The suite has 128 tests covering name standardization, population estimation, panel construction, descriptive indicators, age/sex summaries, data validation, the Poisson/NB specification, structural risk ranking, and the priority rule.
+The suite has 128 test functions (149 test cases, since some tests run with several inputs) covering name standardization, population estimation, panel construction, descriptive indicators, age/sex summaries, data validation, the Poisson/NB specification, structural risk ranking, and the priority rule.
+
+After a clean rerun, check that the CSV outputs match the committed versions:
+
+```bash
+python tools/check_rerun_outputs.py
+```
 
 ## Dashboard
 
-The Tableau dashboard reads only the CSVs in `outputs/`. It shows an incidence choropleth with a year selector, annual trends, the structural risk ranking, Priority / Watch / Stable classifications with their underlying values, and an NCR-level age and sex panel. Only the five observed years appear; no projections are shown.
+The Tableau dashboard reads only the CSVs in `outputs/`, and the workbook is in `outputs/dashboard/`. It shows KPI cards, an incidence choropleth with a year selector, annual trends, the structural risk ranking, the exploratory Priority / Watch / Stable classification with its underlying values, and an NCR-level age and sex panel. Makati’s tier is marked provisional. Only the five observed years appear; no projections are shown.
 
-Dashboard link: https://public.tableau.com/app/profile/karissa.mae.manicad4435/viz/DengueRiskandPrioritizationDashboard/DengueRiskandPrioritizationDashboard
+Dashboard link: https://public.tableau.com/app/profile/martin.sheen.cajucom/viz/DengueRiskandPrioritizationDashboardOutput/DengueRiskandPrioritizationDashboard
 
 ## Limitations
 
@@ -102,7 +116,8 @@ Dashboard link: https://public.tableau.com/app/profile/karissa.mae.manicad4435/v
 - The Makati–Taguig barangay transfer cannot be corrected in the primary data because case counts are not available at barangay level.
 - A single predictor across 17 LGUs gives limited statistical power; clustered standard errors with 17 clusters are approximate.
 - No climate or environmental variables.
-- Usability testing involved only four respondents working in public health practice.
+- User acceptance testing had 15 respondents, only four of whom work in public health practice.
+- The dashboard is designed for computer screens; some phone browsers require opening it in full view on Tableau Public before it can be scrolled.
 
 ## Data privacy
 
